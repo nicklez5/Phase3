@@ -1,3 +1,4 @@
+import java.util.*;
 import cs132.vapor.ast.*;
 import cs132.vapor.ast.VInstr.Visitor;
 import cs132.vapor.ast.VVarRef.Register;
@@ -5,41 +6,158 @@ import cs132.vapor.ast.VVarRef.Local;
 import cs132.vapor.ast.VMemRef.Global;
 import cs132.vapor.ast.VMemRef.Stack;
 public class Node_Visitor extends VInstr.Visitor{
-
+    public Map<Scope, Integer> VInstr_map;
+    public Vector<String> def_set;
+    public Vector<String> use_set;
+    public Vector<String> in_set;
+    public Vector<String> out_set;
+    public int local_size;
+    public int out_size;
+    public int in_size;
+    public int current_pos;
     public Node_Visitor(){
-
+        VInstr_map = new HashMap<Scope, Integer>();
+        def_set = new Vector<String>();
+        use_set = new Vector<String>();
+        in_set = new Vector<String>();
+        out_set = new Vector<String>();
+        local_size = 0;
+        out_size = 0;
+        in_size = 0;
+        current_pos = 0;
     }
-    public void visit(VAssign a){
-        //System.out.println("VAssign was accessed");
-        if(a.dest instanceof VVarRef.Register){
-            VVarRef.Register temp_reg = (VVarRef.Register)a.dest;
-            System.out.println("Store to:" + temp_reg.toString());
-        }else if(a.dest instanceof VVarRef.Local){
-            VVarRef.Local temp_local = (VVarRef.Local)a.dest;
-            System.out.println("Store to:" + temp_local.toString());
+    public void set_current_pos(int current_index){
+        current_pos = current_index;
+    }
+    public int get_live_interval(int current_index, int start_index){
+        int total_size = start_index - current_index;
+        return Math.abs(total_size);
+    }
+    public void add_scope(Scope temp_scope,int index){
+        boolean isnt_found = false;
+        for(Map.Entry<Scope,Integer> entry : VInstr_map.entrySet()){
+            Scope local_scope = entry.getKey();
+            if(local_scope.get_name().equals(temp_scope.get_name())){
+                local_scope.end_point = index;
+                int total_distance = get_live_interval(index,local_scope.start_point);
+                VInstr_map.replace(local_scope,total_distance);
+                isnt_found = true;
+            }
+        }
+        if(!isnt_found){
+            
         }
     }
+    //num_aux = 1
+    //VVraf Dest - Location being stored to. - num_aux
+    //VOperand Source - 1
+    public void visit(VAssign a){
+        if(a.source instanceof VLitStr){
+            VLitStr temp_x = (VLitStr)a.source;
+            //Being used.
+            if(temp_x.toString().contains("t.")){
+                use_set.add(temp_x.toString());
+            }
+            System.out.println("VAssign - String Value: " + temp_x.toString());
+
+        }else if(a.source instanceof VLitInt){
+            VOperand.Static list_args = (VOperand.Static)a.source;
+            VLitInt int_literal = (VLitInt)list_args;
+            System.out.println("VAssign - Integer Value: " + int_literal.toString());
+        }
+        if(a.dest instanceof VVarRef.Local){
+            VVarRef.Local temp_local = (VVarRef.Local)a.dest;
+            System.out.println("VAssign - Store to: " + temp_local.toString());
+            if(temp_local.toString().contains("t.")){
+                def_set.add(temp_local.toString());
+                Scope temp_scope = new Scope(current_pos,current_pos,temp_local.toString());
+                add_scope(temp_scope,current_pos);
+            }else{
+                local_size = local_size + 1;
+            }
+        }
+    }
+    /*
+    VAddr<VFunction> addr; address of function being called
+    VOperand[] args - arguments pass into the functions
+    VVarRef.Local dest - variable used to store the return value of the function - null also
+    */
     public void visit(VCall c){
         if(c.addr instanceof VAddr.Label){
             VAddr.Label temp_label = (VAddr.Label)c.addr;
-            System.out.println("Addr of Label:" + temp_label.toString());
+            System.out.println("VCall Addr Function Label: " + temp_label.toString());
         }else if(c.addr instanceof VAddr.Var){
             VAddr.Var temp_var = (VAddr.Var)c.addr;
-            System.out.println("Addr of Variable:" + temp_var.toString());
+            System.out.println("VCall Addr Function Variable: " + temp_var.toString());
         }
         if(c.dest != null){
-            System.out.println("Dest:" + c.dest.toString());
+            System.out.println("VCall Dest: " + c.dest.toString());
+            //Defining variable
+            if(c.dest.toString().contains("t.")){
+                def_set.add(temp_local.toString());
+                Scope temp_scope = new Scope(current_pos,current_pos)
+            }else{
+                local_size = local_size + 1;
+            }
+        }
+        VOperand[] list_args = c.args;
+        for(int i = 0 ; i < list_args.length ; i++){
+            if(list_args[i] instanceof VLitStr){
+                System.out.println("VCall - String Literal Argument " + i + ": " + list_args[i].toString());
+                in_set.add(list_args[i].toString());
+            }else if(list_args[i] instanceof VVarRef){
+                VVarRef temp_var_ref = (VVarRef)list_args[i];
+                if(temp_var_ref instanceof VVarRef.Local){
+                    VVarRef.Local temp_var_ref_local = (VVarRef.Local)temp_var_ref;
+                    System.out.println("VCall - Local Argument: " + temp_var_ref.toString());
+                    in_set.add(temp_var_ref.toString());
+                }
+
+            }else if(list_args[i] instanceof VLitInt){
+                VOperand.Static temp_static = (VOperand.Static)list_args[i];
+                VLitInt literal_int = (VLitInt)temp_static;
+                System.out.println("VCall - Integer Literal Argument " + i + ": " + literal_int.toString());
+                in_set.add(literal_int.toString());
+            }
         }
         //System.out.println("VCall was accessed");
     }
-    public void visit(VBuiltIn c){
-        System.out.println("Op Name:" + c.op.name);
-        if(c.dest instanceof VVarRef.Register){
-            VVarRef.Register temp_reg = (VVarRef.Register)c.dest;
-            System.out.println("Dest:" + temp_reg.toString());
-        }else if(c.dest instanceof VVarRef.Local){
+    /*
+    Op op - operation being performed
+    VOperand[] args- arguments to the operations
+    VVarRef dest - variable/register to store the result of the operation
+
+    */
+    public void visit(VBuiltIn c) {
+        System.out.println("Op Name: " + c.op.name);
+        System.out.println("Param Size: " + c.op.numParams);
+        if(c.dest instanceof VVarRef.Local){
             VVarRef.Local temp_local = (VVarRef.Local)c.dest;
-            System.out.println("Dest:" + temp_local.toString());
+            System.out.println("Dest Local: " + temp_local.toString());
+            if(temp_local.toString().contains("t.")){
+                def_set.add(temp_local.toString());
+            }else{
+                local_size = local_size + 1;
+            }
+        }
+
+        VOperand[] list_args = c.args;
+        for(int i = 0 ; i < list_args.length ; i++){
+            if(list_args[i] instanceof VLitStr){
+                System.out.println("VBuilt in - String Literal Argument " + i + ": " + list_args[i].toString());
+            }else if(list_args[i] instanceof VVarRef){
+                VVarRef temp_var_ref = (VVarRef)list_args[i];
+                if(temp_var_ref instanceof VVarRef.Local){
+                    VVarRef.Local temp_var_ref_local = (VVarRef.Local)temp_var_ref;
+                    System.out.println("VBuiltIn - Local Argument: " + temp_var_ref_local.toString());
+                    in_set.add(integer_literal.toString());
+                }
+            }else if(list_args[i] instanceof VLitInt){
+                VOperand.Static static_value = (VOperand.Static)list_args[i];
+                VLitInt integer_literal = (VLitInt)static_value;
+                System.out.println("VBuiltIn - Integer Literal: " + integer_literal.toString());
+                in_set.add(integer_literal.toString());
+            }
         }
         //System.out.println("VBuiltIn was accessed");
     }
@@ -52,52 +170,102 @@ public class Node_Visitor extends VInstr.Visitor{
             VAddr<VDataSegment> holy_one = c2.base;
             if(holy_one instanceof VAddr.Label){
                 VAddr.Label temp_label = (VAddr.Label)holy_one;
-                System.out.println("Write to Addr of Label:" + temp_label.toString());
+                System.out.println("Write to Addr of Label: " + temp_label.toString());
             }else if(holy_one instanceof VAddr.Var){
                 VAddr.Var temp_var = (VAddr.Var)holy_one;
-                System.out.println("Write to Addr of Variable:" + temp_var.toString());
+                System.out.println("Write to Addr of Variable: " + temp_var.toString());
+            }
+            VOperand list_args = w.source;
+            VOperand.Static temp_label = (VOperand.Static)list_args;
+            VLabelRef da_label = (VLabelRef)temp_label;
+            System.out.println("Label: " + da_label.ident);
+
+            if(list_args instanceof VLitStr){
+                System.out.println("VMemWrite - String Literal Argument: " + list_args.toString());
+            }else if(list_args instanceof VVarRef){
+                VVarRef temp_var_ref = (VVarRef)list_args;
+                if(temp_var_ref instanceof VVarRef.Local){
+                    VVarRef.Local temp_var_ref_local = (VVarRef.Local)temp_var_ref;
+                    System.out.println("VMemWrite - Local Argument: " + temp_var_ref_local.toString());
+                }
+            }else if(list_args instanceof VLitInt){
+                VOperand.Static list_value = (VOperand.Static)list_args;
+                VLitInt integer_literal = (VLitInt)list_value;
+                System.out.println("VMemWrite - Integer Literal: " + integer_literal.toString());
+
             }
         }
+
         //System.out.println("VMemWrite was accessed");
     }
-    public void visit(VMemRead r){
+    public void visit(VMemRead r)  {
         if(r.source instanceof VMemRef.Global){
             VMemRef.Global _global = (VMemRef.Global)r.source;
             //VMemRef.Global c = r.source;
             VAddr<VDataSegment> c2 = _global.base;
             if(c2 instanceof VAddr.Label){
                 VAddr.Label temp_label = (VAddr.Label)c2;
-                System.out.println("Read Addr of Label:" + temp_label.toString());
+                System.out.println("Read Addr of Label: " + temp_label.toString());
             }else if(c2 instanceof VAddr.Var){
                 VAddr.Var temp_var = (VAddr.Var)c2;
-                System.out.println("Read Addr of Variable:" + temp_var.toString());
+                System.out.println("Read Addr of Variable: " + temp_var.toString());
             }
         }
-        if(r.dest instanceof VVarRef.Register){
-            VVarRef.Register temp_reg = (VVarRef.Register)r.dest;
-            System.out.println("Store to:" + temp_reg.toString());
-        }else if(r.dest instanceof VVarRef.Local){
+        if(r.dest instanceof VVarRef.Local){
             VVarRef.Local temp_local = (VVarRef.Local)r.dest;
-            System.out.println("Store to:" + temp_local.toString());
+            System.out.println("Store to: " + temp_local.toString());
         }
         //System.out.println("VMemRead was accessed");
     }
-    public void visit(VBranch b){
-        System.out.println("Goto branch" + b.target.toString());
+    public void visit(VBranch b) {
+        System.out.println("Goto branch " + b.target.toString());
         //System.out.println("VBranch was accessed");
+        VOperand list_args = b.value;
+        if(list_args instanceof VOperand.Static){
+            VOperand.Static temp_branch_label = (VOperand.Static)list_args;
+            VLabelRef da_label = (VLabelRef)temp_branch_label;
+            System.out.println("Branch Label: " + da_label.ident);
+        }
+        if(list_args instanceof VLitStr){
+            System.out.println("VBranch - String Literal Argument: " + list_args.toString());
+        }else if(list_args instanceof VVarRef){
+            VVarRef temp_var_ref = (VVarRef)list_args;
+            if(temp_var_ref instanceof VVarRef.Local){
+                System.out.println("VBranch - Local Argument: " + temp_var_ref.toString());
+            }
+        }else if(list_args instanceof VLitInt){
+            VOperand.Static list_value = (VOperand.Static)list_args;
+            VLitInt integer_literal = (VLitInt)list_value;
+            System.out.println("VBranch - Integer Literal: " + integer_literal.toString());
+        }
     }
-    public void visit(VGoto g){
+    public void visit(VGoto g)  {
         VAddr<VCodeLabel> temp_g = g.target;
         if(temp_g instanceof VAddr.Label){
             VAddr.Label temp_g2 = (VAddr.Label)temp_g;
-            System.out.println("Goto:" + temp_g2.toString());
+            System.out.println("Goto: " + temp_g2.toString());
         }else if(temp_g instanceof VAddr.Var){
             VAddr.Var temp_g3 = (VAddr.Var)temp_g;
-            System.out.println("Goto:" + temp_g3.toString());
+            System.out.println("Goto: " + temp_g3.toString());
         }
         //System.out.println("VGoto was accessed");
     }
-    public void visit(VReturn r){
+    public void visit(VReturn r)  {
+        VOperand list_args = r.value;
+        if(list_args instanceof VOperand.Static){
+            VOperand.Static return_label = (VOperand.Static)list_args;
+            VLabelRef da_label = (VLabelRef)return_label;
+            System.out.println("Return Label: " + da_label.ident);
+        }
+        if(list_args instanceof VLitStr){
+            System.out.println("VReturn - String Literal Argument: " + list_args.toString());
+        }else if(list_args instanceof VVarRef.Local){
+            System.out.println("VReturn - Local Argument: " + list_args.toString());
+        }else if(list_args instanceof VLitInt){
+            VOperand.Static list_value = (VOperand.Static)list_args;
+            VLitInt integer_literal = (VLitInt)list_value;
+            System.out.println("VReturn - Integer Literal: " + integer_literal.toString());
+        }
         //System.out.println("VReturn was accessed");
     }
 }

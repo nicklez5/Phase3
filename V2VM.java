@@ -43,10 +43,13 @@ public class V2VM{
             InputStream x = System.in;
             VaporProgram xyz = parserVapor(x, ps);
             if(xyz != null){
-                System.out.println("Print was successful");
+                //System.out.println("Print was successful");
                 V2VM godfather = new V2VM(xyz);
-                //godfather.loop_instance();
-                godfather.loop_thru_data();
+                //godfather.loop_thru_function();
+                godfather.loop_instance();
+                //godfather.loop_thru_data();
+                //godfather.print_func_labels();
+                //godfather.loop_thru_vars_data();
             }
     }
     public V2VM(VaporProgram sourceProgram){
@@ -55,10 +58,35 @@ public class V2VM{
         node_visit = new Node_Visitor();
         the_data = sourceProgram.dataSegments;
     }
+    public void loop_thru_vars_data(){
+        /*
+        for(int i = 0 ; i < the_data.length ; i++){
+            System.out.println("Function No: " + the_data[i].index + " " + the_data[i].ident);
+        }
+        */
+        for(int i = 0 ;i < the_functions.length; i++){
+            String[] temp_vars = the_functions[i].vars;
+            System.out.println("Function No: " + i);
+            for(int j = 0; j < temp_vars.length; j++){
+                System.out.println("Variable: " + temp_vars[j]);
+            }
+        }
+
+    }
+    public void print_func_labels(){
+        for(int i = 0;i < the_functions.length;i++){
+            VCodeLabel[] temp_labels = the_functions[i].labels;
+            for(int j = 0; j < temp_labels.length; j++){
+                VFunction temp_func = temp_labels[j].function;
+                System.out.println("Func Label: " + temp_func.ident);
+            }
+        }
+    }
     //Loop through data segments
     public void loop_thru_data(){
         for(int i = 0;i < the_data.length ;i++){
             VOperand.Static[] the_data_values =  the_data[i].values;
+
             for(int j = 0; j < the_data_values.length ; j++){
                 //Does not print any Integer Literals
                 if(the_data_values[j] instanceof VLitInt){
@@ -96,20 +124,28 @@ public class V2VM{
             VInstr[] list_instructions = the_functions[i].body;
             for(int k = 0; k < list_instructions.length; k++){
                 if(list_instructions[k] instanceof VCall){
+                    node_visit.set_current_pos(k);
                     node_visit.visit((VCall)list_instructions[k]);
                 }else if(list_instructions[k] instanceof VAssign){
+                    node_visit.set_current_pos(k);
                     node_visit.visit((VAssign)list_instructions[k]);
                 }else if(list_instructions[k] instanceof VBuiltIn){
+                    node_visit.set_current_pos(k);
                     node_visit.visit((VBuiltIn)list_instructions[k]);
                 }else if(list_instructions[k] instanceof VMemWrite){
+                    node_visit.set_current_pos(k);
                     node_visit.visit((VMemWrite)list_instructions[k]);
                 }else if(list_instructions[k] instanceof VMemRead){
+                    node_visit.set_current_pos(k);
                     node_visit.visit((VMemRead)list_instructions[k]);
                 }else if(list_instructions[k] instanceof VBranch){
+                    node_visit.set_current_pos(k);
                     node_visit.visit((VBranch)list_instructions[k]);
                 }else if(list_instructions[k] instanceof VGoto){
+                    node_visit.set_current_pos(k);
                     node_visit.visit((VGoto)list_instructions[k]);
                 }else if(list_instructions[k] instanceof VReturn){
+                    node_visit.set_current_pos(k);
                     node_visit.visit((VReturn)list_instructions[k]);
                 }
 
