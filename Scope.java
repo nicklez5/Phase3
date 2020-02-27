@@ -16,4 +16,9 @@ public class Scope{
     public String get_name(){
         return string_name;
     }
+    public void print_scope(){
+        System.out.println("String Name: " + string_name);
+        System.out.println("Start Point: " + start_point);
+        System.out.println("End Point: " + end_point);
+    }
 }

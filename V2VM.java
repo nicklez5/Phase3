@@ -1,3 +1,4 @@
+import java.util.*;
 import cs132.util.ProblemException;
 import cs132.vapor.parser.VaporParser;
 import cs132.vapor.ast.VaporProgram;
@@ -15,6 +16,8 @@ public class V2VM{
     public VFunction[] the_functions;
     public VDataSegment[] the_data;
     public Node_Visitor node_visit;
+    public Map<Integer, List_Set> VSet_map;
+    public List<Map<Integer, List_Set>> myMap;
     public static VaporProgram parserVapor(InputStream in, PrintStream err) throws IOException
     {
         Op[] ops = {
@@ -57,6 +60,8 @@ public class V2VM{
         the_functions = sourceProgram.functions;
         node_visit = new Node_Visitor();
         the_data = sourceProgram.dataSegments;
+        VSet_map = new HashMap<Integer , List_Set>();
+        myMap = new ArrayList<Map<Integer, List_Set>>();
     }
     public void loop_thru_vars_data(){
         /*
@@ -71,7 +76,16 @@ public class V2VM{
                 System.out.println("Variable: " + temp_vars[j]);
             }
         }
-
+    }
+    public void loop_thru_maps(){
+        for(Map<Integer, List_Set> map : myMap){
+            for(Map.Entry<Integer, List_Set> entry: map.entrySet()){
+                List_Set temp_list_set = entry.getValue();
+                Integer temp_integer = entry.getKey();
+                System.out.println("Instruction index: " + Integer.toString(temp_integer));
+                temp_list_set.print_set();
+            }
+        }
     }
     public void print_func_labels(){
         for(int i = 0;i < the_functions.length;i++){
@@ -118,39 +132,81 @@ public class V2VM{
 
         }
     }
+    public int start_looping(int start_index, int function_index,String string_to_find){
+        VFunction the_function = the_functions[function_index];
+        VInstr[] temporary_instructions = the_function.body;
+        int big_index = 0;
+        String temp_string = "";
+        for(int i = start_index + 1; i < temporary_instructions.length ; i++){
+            if(temporary_instructions[i] instanceof VGoto){
+                temp_string = node_visit.visit(i,(VGoto)temporary_instructions[i]);
+                if(temp_string.equals(string_to_find)){
+                    big_index = i;
+                    break;
+                }
+            }
+        }
+        return big_index;
+    }
     public void loop_instance(){
+        boolean add_time = false;
         for(int i = 0 ; i < the_functions.length ;i++){
             System.out.println("Function: " + the_functions[i].index);
             VInstr[] list_instructions = the_functions[i].body;
+            boolean waitforme = false;
+            int wait_index = 0;
+            String branch_name = "";
             for(int k = 0; k < list_instructions.length; k++){
+                node_visit.clear_sets();
+                Vector<Integer> random_succ_set = new Vector<Integer>();
                 if(list_instructions[k] instanceof VCall){
-                    node_visit.set_current_pos(k);
-                    node_visit.visit((VCall)list_instructions[k]);
+                    node_visit.visit(k,(VCall)list_instructions[k]);
+                    if(k+1 < list_instructions.length)
+                        random_succ_set.add(k+1);
                 }else if(list_instructions[k] instanceof VAssign){
-                    node_visit.set_current_pos(k);
-                    node_visit.visit((VAssign)list_instructions[k]);
+                    node_visit.visit(k,(VAssign)list_instructions[k]);
+                    if(k+1 < list_instructions.length)
+                        random_succ_set.add(k+1);
                 }else if(list_instructions[k] instanceof VBuiltIn){
-                    node_visit.set_current_pos(k);
-                    node_visit.visit((VBuiltIn)list_instructions[k]);
+                    node_visit.visit(k,(VBuiltIn)list_instructions[k]);
+                    if(k+1 < list_instructions.length)
+                        random_succ_set.add(k+1);
                 }else if(list_instructions[k] instanceof VMemWrite){
-                    node_visit.set_current_pos(k);
-                    node_visit.visit((VMemWrite)list_instructions[k]);
+                    node_visit.visit(k,(VMemWrite)list_instructions[k]);
+                    if(k+1 < list_instructions.length)
+                        random_succ_set.add(k+1);
                 }else if(list_instructions[k] instanceof VMemRead){
-                    node_visit.set_current_pos(k);
-                    node_visit.visit((VMemRead)list_instructions[k]);
+                    node_visit.visit(k,(VMemRead)list_instructions[k]);
+                    if(k+1 < list_instructions.length)
+                        random_succ_set.add(k+1);
                 }else if(list_instructions[k] instanceof VBranch){
-                    node_visit.set_current_pos(k);
-                    node_visit.visit((VBranch)list_instructions[k]);
+                    //Null Branch
+                    if(node_visit.visit(k,(VBranch)list_instructions[k]).contains(":null")){
+                        random_succ_set.add(k+1);
+                        random_succ_set.add(k+2);
+                    //Regular ass Branch
+                    }else{
+                        branch_name = node_visit.visit(k,(VBranch)list_instructions[k]);
+                        branch_name.replace("else","end");
+                        wait_index = start_looping(k,i,branch_name);
+                        random_succ_set.add(k+1);
+                        random_succ_set.add(wait_index+1);
+                    }
                 }else if(list_instructions[k] instanceof VGoto){
-                    node_visit.set_current_pos(k);
-                    node_visit.visit((VGoto)list_instructions[k]);
+                    node_visit.visit(k,(VGoto)list_instructions[k]);
                 }else if(list_instructions[k] instanceof VReturn){
-                    node_visit.set_current_pos(k);
-                    node_visit.visit((VReturn)list_instructions[k]);
+                    node_visit.visit(k,(VReturn)list_instructions[k]);
                 }
 
+                List_Set da_list_set = new List_Set(node_visit.in_set,node_visit.out_set,node_visit.def_set, node_visit.use_set, random_succ_set);
+                VSet_map.put(k,da_list_set);
+
             }
+            myMap.add(i,VSet_map);
         }
+        loop_thru_maps();
+        //node_visit.print_function();
     }
+
 
 }
