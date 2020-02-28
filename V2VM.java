@@ -74,7 +74,6 @@ public class V2VM{
         int i = 0;
         for(Map<Integer, List_Set> map : myMap){
             if(i == function_index){
-                System.out.println("Index: " + i );
                 for(Map.Entry<Integer,List_Set> entry: map.entrySet()){
 
                     List_Set temp_list = entry.getValue();
@@ -95,20 +94,17 @@ public class V2VM{
         //Loop thru functions
         for(Map<Integer, List_Set> map : myMap){
             int map_size = map.size();
-
-            for(Map.Entry<Integer, List_Set> entry: map.entrySet()){
-
-                List_Set[] new_list = new List_Set[map_size];
-                for(int i = 0; i < map_size ;i++){
-                    new_list[i] = new List_Set();
-                }
-                List_Set temp_list = entry.getValue();
-                Integer temp_integer = entry.getKey();
-                int da_real_index = temp_integer.intValue();
-                do{
-                    System.out.println("null index: " + da_real_index);
-                    new_list[da_real_index].in_set = temp_list.in_set;
-                    new_list[da_real_index].out_set = temp_list.out_set;
+            List_Set[] new_list = new List_Set[map_size];
+            for(int i = 0; i < map_size ;i++){
+                new_list[i] = new List_Set();
+            }
+            do{
+                for(Map.Entry<Integer, List_Set> entry: map.entrySet()){
+                    List_Set temp_list = entry.getValue();
+                    Integer temp_integer = entry.getKey();
+                    int da_real_index = temp_integer.intValue();
+                    new_list[da_real_index].in_set.addAll(temp_list.in_set);
+                    new_list[da_real_index].out_set.addAll(temp_list.out_set);
                     temp_list.in_set.addAll(temp_list.use_set);
                     Set<String> temp_out_set = new HashSet<String>(temp_list.out_set);
                     temp_out_set.removeAll(temp_list.def_set);
@@ -120,9 +116,8 @@ public class V2VM{
                         temp_list.out_set.addAll(temporary_list_set.in_set);
 
                     }
-
-                }while(!check_trueness(new_list,random_map_index));
-            }
+                }
+            }while(!check_trueness(new_list,random_map_index));
             random_map_index++;
         }
 
