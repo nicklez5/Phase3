@@ -18,7 +18,7 @@ public class Node_Visitor extends VInstr.VisitorPR< Integer ,String, RuntimeExce
     public int current_pos;
     public boolean dont_add;
     public String branch_label_wait;
-
+    
     public Node_Visitor(){
         VInstr_map = new HashMap<Scope, Integer>();
         def_set = new HashSet<String>();
