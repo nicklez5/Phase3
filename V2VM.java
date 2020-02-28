@@ -18,6 +18,8 @@ public class V2VM{
     public Node_Visitor node_visit;
     public Map<Integer, List_Set> VSet_map;
     public List<Map<Integer, List_Set>> myMap;
+    public Map<Integer, List_Set> current_map;
+    public List<Map<String, Integer>> List_func_map;
     public static VaporProgram parserVapor(InputStream in, PrintStream err) throws IOException
     {
         Op[] ops = {
@@ -49,7 +51,11 @@ public class V2VM{
                 //System.out.println("Print was successful");
                 V2VM godfather = new V2VM(xyz);
                 //godfather.loop_thru_function();
+                godfather.loop_thru_func_labels();
                 godfather.loop_instance();
+                godfather.liveness_function();
+                godfather.loop_thru_maps();
+                //godfather.loop_thru_labels();
                 //godfather.loop_thru_data();
                 //godfather.print_func_labels();
                 //godfather.loop_thru_vars_data();
@@ -62,13 +68,66 @@ public class V2VM{
         the_data = sourceProgram.dataSegments;
         VSet_map = new HashMap<Integer , List_Set>();
         myMap = new ArrayList<Map<Integer, List_Set>>();
+        List_func_map = new ArrayList<Map<String, Integer>>();
+    }
+    public boolean check_trueness(List_Set[] random_set,int function_index){
+        int i = 0;
+        for(Map<Integer, List_Set> map : myMap){
+            if(i == function_index){
+                System.out.println("Index: " + i );
+                for(Map.Entry<Integer,List_Set> entry: map.entrySet()){
+
+                    List_Set temp_list = entry.getValue();
+                    Integer temp_integer = entry.getKey();
+                    List_Set cmp_list = random_set[temp_integer.intValue()];
+                    if( ! (temp_list.in_set.equals(cmp_list.in_set) && temp_list.out_set.equals(cmp_list.out_set)) ){
+                        return false;
+                    }
+                }
+            }
+            i++;
+
+        }
+        return true;
+    }
+    public void liveness_function(){
+        int random_map_index = 0;
+        //Loop thru functions
+        for(Map<Integer, List_Set> map : myMap){
+            int map_size = map.size();
+
+            for(Map.Entry<Integer, List_Set> entry: map.entrySet()){
+
+                List_Set[] new_list = new List_Set[map_size];
+                for(int i = 0; i < map_size ;i++){
+                    new_list[i] = new List_Set();
+                }
+                List_Set temp_list = entry.getValue();
+                Integer temp_integer = entry.getKey();
+                int da_real_index = temp_integer.intValue();
+                do{
+                    System.out.println("null index: " + da_real_index);
+                    new_list[da_real_index].in_set = temp_list.in_set;
+                    new_list[da_real_index].out_set = temp_list.out_set;
+                    temp_list.in_set.addAll(temp_list.use_set);
+                    Set<String> temp_out_set = new HashSet<String>(temp_list.out_set);
+                    temp_out_set.removeAll(temp_list.def_set);
+                    temp_list.in_set.addAll(temp_out_set);
+                    Iterator<Integer> it = temp_list.succ_set.iterator();
+                    while(it.hasNext()){
+                        Integer successor_index = (it.next());
+                        List_Set temporary_list_set = map.get(successor_index);
+                        temp_list.out_set.addAll(temporary_list_set.in_set);
+
+                    }
+
+                }while(!check_trueness(new_list,random_map_index));
+            }
+            random_map_index++;
+        }
+
     }
     public void loop_thru_vars_data(){
-        /*
-        for(int i = 0 ; i < the_data.length ; i++){
-            System.out.println("Function No: " + the_data[i].index + " " + the_data[i].ident);
-        }
-        */
         for(int i = 0 ;i < the_functions.length; i++){
             String[] temp_vars = the_functions[i].vars;
             System.out.println("Function No: " + i);
@@ -76,6 +135,22 @@ public class V2VM{
                 System.out.println("Variable: " + temp_vars[j]);
             }
         }
+    }
+
+    public void loop_thru_func_labels(){
+        Map<String,Integer> temp_map_label = new HashMap<String,Integer>();
+        for(int i = 0; i < the_functions.length; i++){
+            VCodeLabel[] temp_labels = the_functions[i].labels;
+            for(int j = 0 ; j < temp_labels.length; j++){
+                System.out.println("Instruction Index: " + temp_labels[j].instrIndex);
+                System.out.println("Label Name: " + temp_labels[j].ident);
+                temp_map_label.put(temp_labels[j].ident, temp_labels[j].instrIndex);
+            }
+            List_func_map.add(i,temp_map_label);
+        }
+
+
+
     }
     public void loop_thru_maps(){
         for(Map<Integer, List_Set> map : myMap){
@@ -85,6 +160,7 @@ public class V2VM{
                 System.out.println("Instruction index: " + Integer.toString(temp_integer));
                 temp_list_set.print_set();
             }
+            System.out.println("_________________________");
         }
     }
     public void print_func_labels(){
@@ -137,6 +213,7 @@ public class V2VM{
         VInstr[] temporary_instructions = the_function.body;
         int big_index = 0;
         String temp_string = "";
+        node_visit.dont_add = true;
         for(int i = start_index + 1; i < temporary_instructions.length ; i++){
             if(temporary_instructions[i] instanceof VGoto){
                 temp_string = node_visit.visit(i,(VGoto)temporary_instructions[i]);
@@ -146,19 +223,24 @@ public class V2VM{
                 }
             }
         }
+        node_visit.dont_add = false;
         return big_index;
     }
     public void loop_instance(){
         boolean add_time = false;
         for(int i = 0 ; i < the_functions.length ;i++){
+            VSet_map = new HashMap<Integer, List_Set>();
             System.out.println("Function: " + the_functions[i].index);
+            System.out.println("_____________________________");
             VInstr[] list_instructions = the_functions[i].body;
             boolean waitforme = false;
-            int wait_index = 0;
+            int wait_index;
             String branch_name = "";
+            Map<String, Integer> current_func_label_map = List_func_map.get(i);
             for(int k = 0; k < list_instructions.length; k++){
+
                 node_visit.clear_sets();
-                Vector<Integer> random_succ_set = new Vector<Integer>();
+                Set<Integer> random_succ_set = new HashSet<Integer>();
                 if(list_instructions[k] instanceof VCall){
                     node_visit.visit(k,(VCall)list_instructions[k]);
                     if(k+1 < list_instructions.length)
@@ -181,28 +263,35 @@ public class V2VM{
                         random_succ_set.add(k+1);
                 }else if(list_instructions[k] instanceof VBranch){
                     //Null Branch
-                    if(node_visit.visit(k,(VBranch)list_instructions[k]).contains(":null")){
+                    branch_name = node_visit.visit(k, (VBranch)list_instructions[k]);
+                    if(branch_name.contains(":null")){
                         random_succ_set.add(k+1);
                         random_succ_set.add(k+2);
                     //Regular ass Branch
                     }else{
-                        branch_name = node_visit.visit(k,(VBranch)list_instructions[k]);
-                        branch_name.replace("else","end");
+                        branch_name = branch_name.replace("else","end");
                         wait_index = start_looping(k,i,branch_name);
                         random_succ_set.add(k+1);
                         random_succ_set.add(wait_index+1);
                     }
                 }else if(list_instructions[k] instanceof VGoto){
-                    node_visit.visit(k,(VGoto)list_instructions[k]);
+                    branch_name = node_visit.visit(k,(VGoto)list_instructions[k]);
+                    branch_name = branch_name.replace(":","");
+                    int random_index = current_func_label_map.get(branch_name);
+                    System.out.println("GOTO:  " + branch_name);
+                    random_succ_set.add(random_index);
                 }else if(list_instructions[k] instanceof VReturn){
                     node_visit.visit(k,(VReturn)list_instructions[k]);
+                    System.out.println("Return Index: " + k);
                 }
 
                 List_Set da_list_set = new List_Set(node_visit.in_set,node_visit.out_set,node_visit.def_set, node_visit.use_set, random_succ_set);
                 VSet_map.put(k,da_list_set);
 
             }
+
             myMap.add(i,VSet_map);
+
         }
         loop_thru_maps();
         //node_visit.print_function();

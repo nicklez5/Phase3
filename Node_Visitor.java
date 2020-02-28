@@ -7,34 +7,35 @@ import cs132.vapor.ast.VMemRef.Global;
 import cs132.vapor.ast.VMemRef.Stack;
 public class Node_Visitor extends VInstr.VisitorPR< Integer ,String, RuntimeException>{
     public Map<Scope, Integer> VInstr_map;
-    public Vector<String> def_set;
-    public Vector<String> use_set;
-    public Vector<String> in_set;
-    public Vector<String> out_set;
-    public Vector<String> succ_set;
+    public Set<String> def_set;
+    public Set<String> use_set;
+    public Set<String> in_set;
+    public Set<String> out_set;
     //public Vector<String> local_set;
     public int local_size;
     public int out_size;
     public int in_size;
     public int current_pos;
+    public boolean dont_add;
     public String branch_label_wait;
 
     public Node_Visitor(){
         VInstr_map = new HashMap<Scope, Integer>();
-        def_set = new Vector<String>();
-        use_set = new Vector<String>();
-        in_set = new Vector<String>();
-        out_set = new Vector<String>();
+        def_set = new HashSet<String>();
+        use_set = new HashSet<String>();
+        in_set = new HashSet<String>();
+        out_set = new HashSet<String>();
         //local_set = new Vector<String>();
         local_size = 0;
         out_size = 0;
         in_size = 0;
         current_pos = 0;
         branch_label_wait = "";
+        dont_add = false;
     }
     public void print_function(){
-        remove_duplicates(def_set);
-        remove_duplicates(use_set);
+        //remove_duplicates(def_set);
+        //remove_duplicates(use_set);
         System.out.println("Def set vector: " + def_set);
         System.out.println("Use set vector: " + use_set);
         for(Map.Entry<Scope,Integer> entry: VInstr_map.entrySet()){
@@ -84,11 +85,11 @@ public class Node_Visitor extends VInstr.VisitorPR< Integer ,String, RuntimeExce
         }
     }
     public void clear_sets(){
-        def_set = new Vector<String>();
-        use_set = new Vector<String>();
-        in_set = new Vector<String>();
-        out_set = new Vector<String>();
-        
+        def_set = new HashSet<String>();
+        use_set = new HashSet<String>();
+        in_set = new HashSet<String>();
+        out_set = new HashSet<String>();
+
     }
     //num_aux = 1
     //VVraf Dest - Location being stored to. - num_aux
@@ -190,7 +191,7 @@ public class Node_Visitor extends VInstr.VisitorPR< Integer ,String, RuntimeExce
     */
     public String visit(Integer p ,VBuiltIn c) {
         String _ret = "";
-
+        System.out.println("Index: " + Integer.toString(p));
         System.out.println("Op Name: " + c.op.name + " Param Size: " + c.op.numParams);
         if(c.dest instanceof VVarRef.Local){
             VVarRef.Local temp_local = (VVarRef.Local)c.dest;
@@ -347,6 +348,7 @@ public class Node_Visitor extends VInstr.VisitorPR< Integer ,String, RuntimeExce
                 System.out.println("VBranch - Local Argument: " + temp_var_ref.toString());
                 if(temp_var_ref.toString().contains("t.")){
                     use_set.add(temp_var_ref.toString());
+
                     //Scope temp_scope = new Scope(current_pos,current_pos,temp_var_ref.toString());
                     //add_scope(temp_scope,current_pos);
                 }

@@ -1,18 +1,20 @@
 import java.util.*;
 public class List_Set {
-    Vector<String> in_set;
-    Vector<String> out_set;
-    Vector<String> def_set;
-    Vector<String> use_set;
-    Vector<Integer> succ_set;
+    public Set<String> in_set;
+    public Set<String> out_set;
+    public Set<String> def_set;
+    public Set<String> use_set;
+    public Set<Integer> succ_set;
+    public Map<Integer,String> func_map_label;
     public List_Set(){
-        in_set = new Vector<String>();
-        out_set = new Vector<String>();
-        def_set = new Vector<String>();
-        use_set = new Vector<String>();
-        succ_set = new Vector<Integer>();
+        in_set = new HashSet<String>();
+        out_set = new HashSet<String>();
+        def_set = new HashSet<String>();
+        use_set = new HashSet<String>();
+        succ_set = new HashSet<Integer>();
+
     }
-    public List_Set(Vector<String> temp_in_set, Vector<String> temp_out_set, Vector<String> temp_def_set, Vector<String> temp_use_set, Vector<Integer> temp_succ_set){
+    public List_Set(Set<String> temp_in_set, Set<String> temp_out_set, Set<String> temp_def_set, Set<String> temp_use_set, Set<Integer> temp_succ_set){
         in_set = temp_in_set;
         out_set = temp_out_set;
         def_set = temp_def_set;
@@ -27,5 +29,6 @@ public class List_Set {
         System.out.println("Succ Set: " + succ_set);
     }
 
+    //public void remove_duplicates(Vector<In)
 
 }
