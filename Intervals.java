@@ -9,5 +9,8 @@ public class Intervals{
         end_point = end_time;
         string_name = _name;
     }
+    public void simple_print(){
+        System.out.println("Start point: " + start_point + " End point: " + end_point + " ID: " + string_name);
 
+    }
 }
