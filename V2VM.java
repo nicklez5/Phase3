@@ -30,6 +30,7 @@ public class V2VM{
     public List<Intervals> active_sets;
     public Map<Intervals,Vector<String>> pool_free_reg;
     public List<Map<Integer,Set<String>>> line_no_active_var_map;
+    public List<Map<Pair<Integer,String>,String>> list_register_map;
     public static VaporProgram parserVapor(InputStream in, PrintStream err) throws IOException
     {
         Op[] ops = {
@@ -95,6 +96,7 @@ public class V2VM{
         active_sets = new ArrayList<Intervals>();
         pool_free_reg = new HashMap<Intervals, Vector<String>>();
         line_no_active_var_map = new ArrayList<Map<Integer,Set<String>>>();
+        list_register_map = new ArrayList<Map<Pair<Integer,String>,String>>();
     }
     public void print_arraylist_intervals(){
         System.out.println("Printing intervals");
@@ -107,6 +109,18 @@ public class V2VM{
         }
 
 
+    }
+    public void sort_active_sets(){
+        int n = active_sets.size();
+        for(int i = 1; i < n; ++i){
+            int key = active_sets.get(i).end_point;
+            int j = i - 1;
+            while(j >= 0 && active_sets.get(j).end_point > key){
+                active_sets.set(j+1) = active_sets.get(j);
+                j = j - 1;
+            }
+            active_sets.set(j+1) = active_sets.get(i);
+        }
     }
     public void print_active_var_map(){
         for(int i = 0; i < line_no_active_var_map.size();i++){
@@ -130,7 +144,6 @@ public class V2VM{
         vector_name.add("t6");
         vector_name.add("t7");
         vector_name.add("t8");
-        /*
         vector_name.add("s0");
         vector_name.add("s1");
         vector_name.add("s2");
@@ -139,13 +152,7 @@ public class V2VM{
         vector_name.add("s5");
         vector_name.add("s6");
         vector_name.add("s7");
-        vector_name.add("a0");
-        vector_name.add("a1");
-        vector_name.add("a2");
-        vector_name.add("a3");
-        vector_name.add("v0");
-        vector_name.add("v1");
-        */
+
 
     }
     public void linear_scan_reg_algo(){
@@ -155,17 +162,42 @@ public class V2VM{
             pool_free_reg = new HashMap<Intervals, Vector<String>>();
             Vector<String> register_names = new Vector<String>();
             initialize_register_vector(register_names);
+            Map<Integer,Set<String>> pool_free_reg_mapping = line_no_active_var_map.at(i);
+            Map<Pair<Integer,String>, String> register_map = new HashMap<Pair<Integer,String> , String>();
+            //Initializing the map pair for register mapping.
+            for(Map.Entry<Integer,Set<String>> entry: pool_free_reg_mapping.entrySet()){
+                Integer line_no_index = entry.getKey();
+                Set<String> set_of_strings = entry.getValue();
+                Iterator _itr = set_of_strings.iterator();
+                while(_itr.hasNext()){
+                    String var_number = (String)_itr.next();
+                    Pair<Integer,String> pair = new Pair<>(line_no_index, var_number);
+                    register_map.put(pair,"");
+                }
+            }
             //pool_free_reg.put(test_me,register_names);
             for(Intervals num : test_me){
                 expire_old_intervals(num);
-                if(active_sets.size() == 23){
+                if(active_sets.size() == 17){
                     spill_at_interval(num);
                 }else{
+                    String reg_name = register_names.firstElement();
+                    register_names.remove(0);
+                    int live_interval_line_no = num.start_point;
+                    String live_interval_var_num = num.string_name;
+                    Pair<Integer,String> tmp_pair = new Pair<>(live_interval_line_no, live_interval_var_num);
+                    if(register_map.containsKey(tmp_pair)){
+                        register_map.replace(tmp_pair,reg_name);
+                        active_sets.add(num);
+                        sort_active_sets();
+                    }else{
+                        System.out.println("System map does not contain this pair");
+                    }
 
-                    active_sets.add(num);
-                    //sort active sets by insertion sort.
                 }
             }
+            list_register_map.add(register_map);
+
         }
 
 
@@ -176,7 +208,8 @@ public class V2VM{
             if(active_interval.end_point >= temp_interval.start_point){
                 return;
             }
-            active_sets.remove(i);
+            active_sets.remove(active_interval);
+            
             //add register j to pool of free registers.
         }
     }
