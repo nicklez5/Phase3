@@ -18,7 +18,7 @@ public class Node_Visitor extends VInstr.VisitorPR< Integer ,String, RuntimeExce
     public int current_pos;
     public boolean dont_add;
     public String branch_label_wait;
-    
+
     public Node_Visitor(){
         VInstr_map = new HashMap<Scope, Integer>();
         def_set = new HashSet<String>();
@@ -209,6 +209,7 @@ public class Node_Visitor extends VInstr.VisitorPR< Integer ,String, RuntimeExce
         for(int i = 0 ; i < list_args.length ; i++){
             if(list_args[i] instanceof VLitStr){
                 System.out.println("Index: " + Integer.toString(p)  + " VBuilt in - String Literal Argument " + i + ": " + list_args[i].toString());
+                _ret = "false";
             }else if(list_args[i] instanceof VVarRef){
                 VVarRef temp_var_ref = (VVarRef)list_args[i];
                 if(temp_var_ref instanceof VVarRef.Local){

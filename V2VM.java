@@ -30,7 +30,11 @@ public class V2VM{
     public List<Intervals> active_sets;
     public Map<Intervals,Vector<String>> pool_free_reg;
     public List<Map<Integer,Set<String>>> line_no_active_var_map;
+    public Map<Pair<Integer,String>,String> register_map;
     public List<Map<Pair<Integer,String>,String>> list_register_map;
+    public Vector<String> reg_pool;
+    public int function_index;
+    public List<Stack_ptr> function_stacks;
     public static VaporProgram parserVapor(InputStream in, PrintStream err) throws IOException
     {
         Op[] ops = {
@@ -72,6 +76,10 @@ public class V2VM{
 
             godfather.print_arraylist_intervals();
             godfather.print_active_var_map();
+            godfather.initialize_function_stack();
+            godfather.linear_scan_reg_algo();
+            godfather.print_list_reg_map();
+            //godfather.loop_thru_maps();
             //godfather.loop_thru_labels();
             //godfather.loop_thru_data();
             //godfather.print_func_labels();
@@ -96,7 +104,28 @@ public class V2VM{
         active_sets = new ArrayList<Intervals>();
         pool_free_reg = new HashMap<Intervals, Vector<String>>();
         line_no_active_var_map = new ArrayList<Map<Integer,Set<String>>>();
+        register_map = new HashMap<Pair<Integer,String>,String>();
         list_register_map = new ArrayList<Map<Pair<Integer,String>,String>>();
+        reg_pool = new Vector<String>();
+        function_index = 0;
+        function_stacks = new ArrayList<Stack_ptr>();
+    }
+    public void print_list_reg_map(){
+        for(int i = 0;i < list_register_map.size();i++){
+            System.out.println("Printing Register Map for function index: " + i );
+            Map<Pair<Integer,String>,String> current_reg_map = list_register_map.get(i);
+            for(Map.Entry<Pair<Integer,String>,String> entry: current_reg_map.entrySet() ){
+                Pair<Integer,String> small_pair = entry.getKey();
+                System.out.println("Line No:" + small_pair.getKey() + " Var id:" + small_pair.getValue() + " Location:" + entry.getValue());
+
+            }
+        }
+    }
+    public void initialize_function_stack(){
+        for(int i = 0; i < list_of_interval_times.size();i++){
+            Stack_ptr temp_stack = new Stack_ptr(0,0,0);
+            function_stacks.add(temp_stack);
+        }
     }
     public void print_arraylist_intervals(){
         System.out.println("Printing intervals");
@@ -116,10 +145,10 @@ public class V2VM{
             int key = active_sets.get(i).end_point;
             int j = i - 1;
             while(j >= 0 && active_sets.get(j).end_point > key){
-                active_sets.set(j+1) = active_sets.get(j);
+                active_sets.set(j+1,active_sets.get(j));
                 j = j - 1;
             }
-            active_sets.set(j+1) = active_sets.get(i);
+            active_sets.set(j+1,active_sets.get(i));
         }
     }
     public void print_active_var_map(){
@@ -156,14 +185,15 @@ public class V2VM{
 
     }
     public void linear_scan_reg_algo(){
+        reg_pool = new Vector<String>();
+        initialize_register_vector(reg_pool);
         for(int i = 0; i < list_of_interval_times.size();i++){
+            function_index = i;
             active_sets = new ArrayList<Intervals>();
             List<Intervals> test_me = list_of_interval_times.get(i);
             pool_free_reg = new HashMap<Intervals, Vector<String>>();
-            Vector<String> register_names = new Vector<String>();
-            initialize_register_vector(register_names);
-            Map<Integer,Set<String>> pool_free_reg_mapping = line_no_active_var_map.at(i);
-            Map<Pair<Integer,String>, String> register_map = new HashMap<Pair<Integer,String> , String>();
+            Map<Integer,Set<String>> pool_free_reg_mapping = line_no_active_var_map.get(i);
+            register_map = new HashMap<Pair<Integer,String> , String>();
             //Initializing the map pair for register mapping.
             for(Map.Entry<Integer,Set<String>> entry: pool_free_reg_mapping.entrySet()){
                 Integer line_no_index = entry.getKey();
@@ -181,18 +211,15 @@ public class V2VM{
                 if(active_sets.size() == 17){
                     spill_at_interval(num);
                 }else{
-                    String reg_name = register_names.firstElement();
-                    register_names.remove(0);
+                    String reg_name = reg_pool.firstElement();
+                    reg_pool.remove(0);
                     int live_interval_line_no = num.start_point;
                     String live_interval_var_num = num.string_name;
+                    boolean no_pair_found = true;
                     Pair<Integer,String> tmp_pair = new Pair<>(live_interval_line_no, live_interval_var_num);
-                    if(register_map.containsKey(tmp_pair)){
-                        register_map.replace(tmp_pair,reg_name);
-                        active_sets.add(num);
-                        sort_active_sets();
-                    }else{
-                        System.out.println("System map does not contain this pair");
-                    }
+                    set_register(num,reg_name);
+                    active_sets.add(num);
+                    sort_active_sets();
 
                 }
             }
@@ -203,18 +230,70 @@ public class V2VM{
 
     }
     public void expire_old_intervals(Intervals temp_interval){
+        sort_active_sets();
         for(int i = 0; i < active_sets.size();i++){
             Intervals active_interval = active_sets.get(i);
             if(active_interval.end_point >= temp_interval.start_point){
                 return;
             }
             active_sets.remove(active_interval);
-            
-            //add register j to pool of free registers.
+            set_register(active_interval,"");
+            reg_pool.add(return_register(active_interval));
+
+
+        }
+    }
+    public String return_register(Intervals temp_interval){
+        String _ret = "false";
+        boolean register_not_found = true;
+        for(Map.Entry<Pair<Integer,String>,String> pair_entry : register_map.entrySet()){
+            Pair<Integer,String> little_pair = pair_entry.getKey();
+            String reg_value = pair_entry.getValue();
+            if(little_pair.getKey() == temp_interval.start_point && little_pair.getValue().equals(temp_interval.string_name)){
+                _ret = reg_value;
+                register_not_found = false;
+                return _ret;
+            }
+        }
+        if(register_not_found){
+            System.out.println("Return Register is not found");
+        }
+        return _ret;
+    }
+    public void set_register(Intervals random_interval, String reg_value){
+        boolean register_not_found = true;
+        for(Map.Entry<Pair<Integer,String>,String> pair_entry : register_map.entrySet()){
+            Pair<Integer,String> little_pair = pair_entry.getKey();
+            if(little_pair.getKey() == random_interval.start_point && little_pair.getValue().equals(random_interval.string_name)){
+                pair_entry.setValue(reg_value);
+                register_not_found = false;
+            }
+        }
+        if(register_not_found){
+            System.out.println("Set Register is not found");
         }
     }
     public void spill_at_interval(Intervals temp_interval){
-
+        Intervals spill = active_sets.get(active_sets.size()-1);
+        int stack_offset = 0;
+        Stack_ptr stk_ptr = function_stacks.get(function_index);
+        if(spill.end_point > temp_interval.end_point){
+            String spill_reg = return_register(spill);
+            set_register(temp_interval,spill_reg);
+            //Location[spill] = new stack location
+            stack_offset = stk_ptr.local;
+            stk_ptr.local += 1;
+            String location_reg_value = "local[" + stack_offset + "]";
+            set_register(spill,location_reg_value);
+            active_sets.remove(spill);
+            active_sets.add(temp_interval);
+            sort_active_sets();
+        }else{
+            stack_offset = stk_ptr.local;
+            stk_ptr.local += 1;
+            String location_reg_value = "local[" + stack_offset + "]";
+            set_register(temp_interval,location_reg_value);
+        }
     }
     public void sort_group_data_names(){
         for(int i = 0; i < interval_times.size()-1; i++){
@@ -241,13 +320,15 @@ public class V2VM{
     public void extractdata(){
 
         int function_index = 0;
-
+        System.out.println("EXTRACTING DATA");
         print_live_interval_map();
         //Functions
         for(Map<Integer, List_Set> map: myMap){
             //instructions
             interval_times = new ArrayList<Intervals>();
             Set<String> table_namez = group_data_names.get(function_index);
+            live_interval_map.clear();
+            System.out.println("Table Data names: " + table_namez);
             System.out.println("Function No: " + function_index);
             Iterator<String> _itr = table_namez.iterator();
             while(_itr.hasNext()){
@@ -256,54 +337,30 @@ public class V2VM{
             }
             boolean first_Time = true;
             Set<String> active_sets = new HashSet<String>();
-            interval_times.clear();
             //for every instruction.
             Map<Integer,Set<String>> temporary_map = new HashMap<Integer,Set<String>>();
             for(Map.Entry<Integer, List_Set> entry: map.entrySet()){
                 Set<String> temp_set = new HashSet<String>();
                 Integer time_value =  entry.getKey();
                 List_Set temp_list_set = entry.getValue();
-                System.out.println("Index: " + time_value.intValue() + " Current active sets: " + active_sets);
-                if(active_sets.size() == 0){
-                    active_sets.addAll(temp_list_set.def_set);
-                    System.out.println("Def set: " + temp_list_set.def_set);
-                    active_sets.addAll(temp_list_set.in_set);
-                    System.out.println("In set: " + temp_list_set.in_set);
-
-                }else{
-                    Iterator<String> _itr2 = temp_list_set.in_set.iterator();
-                    while(_itr2.hasNext()){
-                        String string_obj = (String)_itr2.next();
-                        if(active_sets.contains(string_obj)){
-                            Integer distance_value = live_interval_map.get(string_obj);
-                            live_interval_map.put(string_obj,distance_value.intValue() + 1);
-                            active_sets.remove(string_obj);
-                            Intervals random_interval = new Intervals(time_value.intValue() - 1,time_value.intValue(), string_obj);
-                            interval_times.add(random_interval);
-                            temp_set.add(string_obj);
-                            temporary_map.put(time_value.intValue()-1,temp_set);
-                        }else{
-                            active_sets.add(string_obj);
-                        }
-                    }
-
-                    _itr2 = temp_list_set.def_set.iterator();
-                    while(_itr2.hasNext()){
-                        String string_obj = (String)_itr2.next();
-                        if(active_sets.contains(string_obj)){
-                            Integer distance_value = live_interval_map.get(string_obj);
-                            live_interval_map.put(string_obj,distance_value.intValue() + 1);
-                            active_sets.remove(string_obj);
-                            Intervals random_interval = new Intervals(time_value.intValue() - 1,time_value.intValue(), string_obj);
-                            interval_times.add(random_interval);
-                            temp_set.add(string_obj);
-                            temporary_map.put(time_value.intValue()-1,temp_set);
-                        }else{
-                            active_sets.add(string_obj);
-                        }
-                    }
+                String instruction_value = "";
+                active_sets.addAll(temp_list_set.def_set);
+                active_sets.addAll(temp_list_set.in_set);
+                Iterator<String> _itr2 = active_sets.iterator();
+                while(_itr2.hasNext()){
+                    instruction_value = (String)_itr2.next();
+                    Integer live_value = live_interval_map.get(instruction_value);
+                    live_interval_map.put(instruction_value,live_value.intValue() + 1);
+                    Intervals random_interval = new Intervals(time_value.intValue(),time_value.intValue()+1,instruction_value);
+                    interval_times.add(random_interval);
                 }
+                temp_set.addAll(active_sets);
+                temporary_map.put(time_value,temp_set);
+                System.out.println("Index: " + time_value.intValue() + " Current active sets: " + active_sets);
+                active_sets.clear();
+
             }
+
             line_no_active_var_map.add(temporary_map);
             list_of_interval_times.add(interval_times);
 
@@ -313,6 +370,7 @@ public class V2VM{
     }
     public boolean check_trueness(List_Set[] random_set,int function_index){
         int i = 0;
+
         for(Map<Integer, List_Set> map : myMap){
             if(i == function_index){
                 for(Map.Entry<Integer,List_Set> entry: map.entrySet()){
@@ -320,32 +378,45 @@ public class V2VM{
                     List_Set temp_list = entry.getValue();
                     Integer temp_integer = entry.getKey();
                     List_Set cmp_list = random_set[temp_integer.intValue()];
-                    if( ! (temp_list.in_set.equals(cmp_list.in_set) && temp_list.out_set.equals(cmp_list.out_set)) ){
+                    if(cmp_list.in_set.equals(temp_list.in_set) && cmp_list.out_set.equals(temp_list.out_set) ) {
+                    }else{
                         return false;
                     }
                 }
+                return true;
             }
             i++;
 
         }
         return true;
     }
+
     public void liveness_function(){
+        System.out.println("Entering liveness function");
         int random_map_index = 0;
         //Loop thru functions
         for(Map<Integer, List_Set> map : myMap){
             int map_size = map.size();
+
             List_Set[] new_list = new List_Set[map_size];
             for(int i = 0; i < map_size ;i++){
                 new_list[i] = new List_Set();
+            }
+            for(Map.Entry<Integer, List_Set> entry: map.entrySet()){
+                List_Set temp_list = entry.getValue();
+                temp_list.in_set.clear();
+                temp_list.out_set.clear();
+                entry.setValue(temp_list);
             }
             do{
                 for(Map.Entry<Integer, List_Set> entry: map.entrySet()){
                     List_Set temp_list = entry.getValue();
                     Integer temp_integer = entry.getKey();
                     int da_real_index = temp_integer.intValue();
+
                     new_list[da_real_index].in_set.addAll(temp_list.in_set);
                     new_list[da_real_index].out_set.addAll(temp_list.out_set);
+
                     temp_list.in_set.addAll(temp_list.use_set);
                     Set<String> temp_out_set = new HashSet<String>(temp_list.out_set);
                     temp_out_set.removeAll(temp_list.def_set);
@@ -357,6 +428,8 @@ public class V2VM{
                         temp_list.out_set.addAll(temporary_list_set.in_set);
 
                     }
+                    entry.setValue(temp_list);
+                    
                 }
             }while(!check_trueness(new_list,random_map_index));
             random_map_index++;
@@ -389,7 +462,9 @@ public class V2VM{
 
     }
     public void loop_thru_maps(){
+        int lame_index = 0;
         for(Map<Integer, List_Set> map : myMap){
+            System.out.println("Map function index " + lame_index);
             for(Map.Entry<Integer, List_Set> entry: map.entrySet()){
                 List_Set temp_list_set = entry.getValue();
                 Integer temp_integer = entry.getKey();
@@ -404,6 +479,7 @@ public class V2VM{
             System.out.println("_________________________");
             System.out.println("Data List: " + data_names);
             data_names = new HashSet<String>();
+            lame_index += 1;
         }
 
 
@@ -495,9 +571,15 @@ public class V2VM{
                     if(k+1 < list_instructions.length)
                     random_succ_set.add(k+1);
                 }else if(list_instructions[k] instanceof VBuiltIn){
-                    node_visit.visit(k,(VBuiltIn)list_instructions[k]);
-                    if(k+1 < list_instructions.length)
-                    random_succ_set.add(k+1);
+                    String empty_string;
+                    empty_string = node_visit.visit(k,(VBuiltIn)list_instructions[k]);
+                    if(empty_string.isEmpty()){
+                        if(k+1 < list_instructions.length){
+                            random_succ_set.add(k+1);
+                        }
+
+
+                    }
                 }else if(list_instructions[k] instanceof VMemWrite){
                     node_visit.visit(k,(VMemWrite)list_instructions[k]);
                     if(k+1 < list_instructions.length)
