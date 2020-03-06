@@ -15,4 +15,7 @@ public class Pair<K, V>{
     public V getValue(){
         return element1;
     }
+    public void print_pair(){
+        System.out.println("Pair Key: " + element0 + " Pair Value: " + element1);
+    }
 }
