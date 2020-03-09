@@ -38,6 +38,7 @@ public class V2VM{
     public Vector<String> reg_pool;
     public int function_index;
     public List<Stacks> function_stacks;
+    public Map<String,String> argument_register_map;
 
     public static VaporProgram parserVapor(InputStream in, PrintStream err) throws IOException
     {
@@ -84,6 +85,9 @@ public class V2VM{
             godfather.initialize_function_stack();
             godfather.linear_scan_reg_algo();
             godfather.print_list_reg_map();
+            godfather.check_out_function_stacks();
+            godfather.loop_thru_function();
+            //godfather.loop_thru_vars_data();
             /*
 
 
@@ -135,7 +139,16 @@ public class V2VM{
         function_stacks = new ArrayList<Stacks>();
         random_succ_set = new HashSet<Integer>();
         //liveness_map = new HashMap<Integer,Set<String>>();
+        argument_register_map = new HashMap<String,String>();
         list_liveness_map = new ArrayList<Map<Integer,Set<String>>>();
+    }
+    public void check_out_function_stacks(){
+        for(int i = 0 ; i < function_stacks.size() ; i++){
+            Stacks xyz = function_stacks.get(i);
+            System.out.println("Vector In: " + xyz.in);
+            System.out.println("Vector Out: " + xyz.out);
+            System.out.println("Vector Local: " + xyz.local);
+        }
     }
     public void print_data_names(){
         for(int i = 0 ; i < group_data_names.size();i++){
@@ -340,7 +353,7 @@ public class V2VM{
             function_index = i;
             interval_times = list_of_interval_times.get(i);
             //System.out.println("Interval times size:" + interval_times.size());
-            active_sets = new ArrayList<Intervals>(interval_times.size());
+            active_sets = new ArrayList<Intervals>();
             //System.out.println("Active set is cleared ");
 
             //sort by starting time.
@@ -366,6 +379,7 @@ public class V2VM{
                     //System.out.println("Current Reg: " + reg_name);
                     set_register(num,reg_name);
                     active_sets.add(num);
+                    sort_active_sets();
 
 
                 }
@@ -390,8 +404,10 @@ public class V2VM{
                 return;
             }
             active_sets.remove(active_interval);
-            set_register(active_interval,"");
+            //System.out.println("Active Interval: " + active_interval.string_name + "Reg: " + return_register(active_interval));
             reg_pool.add(return_register(active_interval));
+            set_register(active_interval,"");
+
 
 
         }
@@ -666,6 +682,21 @@ public class V2VM{
         for(int i = 0 ; i < the_functions.length; i++){
             VFunction test_function = the_functions[i];
             VInstr[] instructionz = test_function.body;
+            VVarRef.Local[] parameter_list = test_function.params;
+            Stacks temp_stack = function_stacks.get(i);
+            int arguments = 0;
+            for(int k = 1; k < parameter_list.length; k++){
+                System.out.println("local[" + temp_stack.local.size() + "] = $s" + arguments);
+                temp_stack.store_local(parameter_list[k].ident);
+                arguments++;
+            }
+            for(int k = 0; k < parameter_list.length; k++){
+                if((k & 1) == 1){
+                    System.out.println("local[" + temp_stack.local.size() + "] = $s" + arguments);
+                    temp_stack.store_local(parameter_list[k].ident);
+                    arguments++;
+                }
+            }
 
         }
         //VFunction test_functions = the_functions
@@ -674,6 +705,7 @@ public class V2VM{
         for(int i = 0 ;i < the_functions.length; i++){
             String[] temp_vars = the_functions[i].vars;
             System.out.println("Function No: " + i);
+
             for(int j = 0; j < temp_vars.length; j++){
                 System.out.println("Variable: " + temp_vars[j]);
             }
