@@ -5,97 +5,13 @@ import cs132.vapor.ast.VVarRef.Register;
 import cs132.vapor.ast.VVarRef.Local;
 import cs132.vapor.ast.VMemRef.Global;
 import cs132.vapor.ast.VMemRef.Stack;
-public class Node_Visitor extends VInstr.VisitorPR< Integer ,String, RuntimeException>{
-    public Map<Scope, Integer> VInstr_map;
-    public Set<String> def_set;
-    public Set<String> use_set;
-    public Set<String> in_set;
-    public Set<String> out_set;
-    //public Vector<String> local_set;
-    public int local_size;
-    public int out_size;
-    public int in_size;
-    public int current_pos;
-    public boolean dont_add;
-    public String branch_label_wait;
-
-    public Node_Visitor(){
-        VInstr_map = new HashMap<Scope, Integer>();
-        def_set = new HashSet<String>();
-        use_set = new HashSet<String>();
-        in_set = new HashSet<String>();
-        out_set = new HashSet<String>();
-        //local_set = new Vector<String>();
-        local_size = 0;
-        out_size = 0;
-        in_size = 0;
-        current_pos = 0;
-        branch_label_wait = "";
-        dont_add = false;
+public class Print_Visitor extends VInstr.VisitorPR< Integer , String, RuntimeException>{
+    boolean first_time;
+    public Print_Visitor(){
+        first_time = true;
     }
-    public void print_function(){
-        //remove_duplicates(def_set);
-        //remove_duplicates(use_set);
-        System.out.println("Def set vector: " + def_set);
-        System.out.println("Use set vector: " + use_set);
-        for(Map.Entry<Scope,Integer> entry: VInstr_map.entrySet()){
-            Scope local_scope = entry.getKey();
-            int local_value = entry.getValue();
-            System.out.println("Value: " + local_value);
-            local_scope.print_scope();
-        }
-    }
-
-    public void remove_duplicates(Vector<String> temp_vector){
-        for(int i = 0;i < temp_vector.size();i++){
-            for(int j = 0 ; j < temp_vector.size();j++){
-                if(i != j){
-                    if(temp_vector.elementAt(i).equals(temp_vector.elementAt(j))){
-                        temp_vector.removeElementAt(j);
-                    }
-                }
-            }
-        }
-    }
-    public void increment_pos(){
-        current_pos = current_pos + 1;
-    }
-    public void set_current_pos(int current_index){
-        current_pos = current_index;
-    }
-    public int get_live_interval(int current_index, int start_index){
-        int total_size = start_index - current_index;
-        return Math.abs(total_size);
-    }
-    public void add_scope(Scope temp_scope,int index){
-        boolean isnt_found = false;
-        for(Map.Entry<Scope,Integer> entry : VInstr_map.entrySet()){
-            Scope local_scope = entry.getKey();
-            if(local_scope.get_name().equals(temp_scope.get_name())){
-                if(local_scope.end_point < index){
-                    local_scope.end_point = index;
-                }
-                int total_distance = get_live_interval(index,local_scope.start_point);
-                VInstr_map.replace(local_scope,total_distance);
-                isnt_found = true;
-            }
-        }
-        if(!isnt_found){
-            VInstr_map.put(temp_scope,index);
-        }
-    }
-    public void clear_sets(){
-        def_set = new HashSet<String>();
-        use_set = new HashSet<String>();
-        in_set = new HashSet<String>();
-        out_set = new HashSet<String>();
-
-    }
-    //num_aux = 1
-    //VVraf Dest - Location being stored to. - num_aux
-    //VOperand Source - 1
     public String visit(Integer p, VAssign a){
-        System.out.println("Integer: " + p);
+
         String _ret = "";
         if(a.source instanceof VLitStr){
             VLitStr temp_x = (VLitStr)a.source;
@@ -125,12 +41,7 @@ public class Node_Visitor extends VInstr.VisitorPR< Integer ,String, RuntimeExce
         }
         return _ret;
     }
-    /*
-    VAddr<VFunction> addr; address of function being called
-    VOperand[] args - arguments pass into the functions
-    VVarRef.Local dest - variable used to store the return value of the function - null also
-    */
-    public String visit(Integer p , VCall c){
+    public String visit(Integer p, VCall c){
         String _ret = "";
         if(c.addr instanceof VAddr.Label){
             VAddr.Label temp_label = (VAddr.Label)c.addr;
@@ -191,9 +102,11 @@ public class Node_Visitor extends VInstr.VisitorPR< Integer ,String, RuntimeExce
     */
     public String visit(Integer p ,VBuiltIn c) {
         String _ret = "";
-        System.out.println("Index: " + Integer.toString(p));
-        System.out.println("Op Name: " + c.op.name + " Param Size: " + c.op.numParams);
-        System.out.println("Destination: " + c.dest);
+        String built_in_label = c.op.name;
+        String parameter_value = "";
+        //System.out.println("Index: " + Integer.toString(p));
+        //System.out.println("Op Name: " + c.op.name + " Param Size: " + c.op.numParams);
+        //System.out.println("Destination: " + c.dest);
         if(c.dest instanceof VVarRef.Local){
             VVarRef.Local temp_local = (VVarRef.Local)c.dest;
             System.out.println("Dest Local: " + temp_local.toString());
@@ -208,9 +121,11 @@ public class Node_Visitor extends VInstr.VisitorPR< Integer ,String, RuntimeExce
 
         VOperand[] list_args = c.args;
         for(int i = 0 ; i < list_args.length ; i++){
+
             if(list_args[i] instanceof VLitStr){
-                System.out.println("Index: " + Integer.toString(p)  + " VBuilt in - String Literal Argument " + i + ": " + list_args[i].toString());
+                System.out.println("Error(" + list_args[i].toString() + ")");
                 _ret = "false";
+                return _ret;
             }else if(list_args[i] instanceof VVarRef){
                 VVarRef temp_var_ref = (VVarRef)list_args[i];
                 if(temp_var_ref instanceof VVarRef.Local){
@@ -227,8 +142,12 @@ public class Node_Visitor extends VInstr.VisitorPR< Integer ,String, RuntimeExce
                 VOperand.Static static_value = (VOperand.Static)list_args[i];
                 VLitInt integer_literal = (VLitInt)static_value;
                 System.out.println("VBuiltIn - Integer Literal: " + integer_literal.toString());
+                parameter_value = integer_literal.toString();
                 //in_set.add(integer_literal.toString());
             }
+        }
+        if(built_in_label.contains("HeapAllocZ")){
+            System.out.println("$t0 = " + built_in_label + "(" + parameter_value + ")");
         }
         //System.out.println("VBuiltIn was accessed");
         return _ret;
