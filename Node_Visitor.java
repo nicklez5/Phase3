@@ -18,13 +18,14 @@ public class Node_Visitor extends VInstr.VisitorPR< Integer ,String, RuntimeExce
     public int current_pos;
     public boolean dont_add;
     public String branch_label_wait;
-
+    public Set<String> param_values;
     public Node_Visitor(){
         VInstr_map = new HashMap<Scope, Integer>();
         def_set = new HashSet<String>();
         use_set = new HashSet<String>();
         in_set = new HashSet<String>();
         out_set = new HashSet<String>();
+        param_values = new HashSet<String>();
         //local_set = new Vector<String>();
         local_size = 0;
         out_size = 0;
@@ -32,6 +33,9 @@ public class Node_Visitor extends VInstr.VisitorPR< Integer ,String, RuntimeExce
         current_pos = 0;
         branch_label_wait = "";
         dont_add = false;
+    }
+    public void empty_param_values(){
+        param_values = new HashSet<String>();
     }
     public void print_function(){
         //remove_duplicates(def_set);
@@ -216,6 +220,7 @@ public class Node_Visitor extends VInstr.VisitorPR< Integer ,String, RuntimeExce
                 if(temp_var_ref instanceof VVarRef.Local){
                     VVarRef.Local temp_var_ref_local = (VVarRef.Local)temp_var_ref;
                     System.out.println("VBuiltIn - Local Argument: " + temp_var_ref_local.toString());
+                    param_values.add(temp_var_ref_local.toString());
                     if(temp_var_ref_local.toString().contains("t.")){
                         use_set.add(temp_var_ref_local.toString());
                         //Scope temp_scope = new Scope(current_pos,current_pos,temp_var_ref_local.toString());

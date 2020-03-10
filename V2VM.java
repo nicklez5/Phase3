@@ -39,7 +39,11 @@ public class V2VM{
     public int function_index;
     public List<Stacks> function_stacks;
     public Map<String,String> argument_register_map;
-
+    public Set<String> values_called;
+    public List<Set<String>> list_values_called;
+    public Map<String, String> register_map_local;
+    public List<Map<String , String>> list_register_map_local;
+    public Print_Visitor temp_print_xyz;
     public static VaporProgram parserVapor(InputStream in, PrintStream err) throws IOException
     {
         Op[] ops = {
@@ -87,6 +91,7 @@ public class V2VM{
             godfather.print_list_reg_map();
             godfather.check_out_function_stacks();
             godfather.loop_thru_function();
+            godfather.print_list_values();
             //godfather.loop_thru_vars_data();
             /*
 
@@ -141,6 +146,11 @@ public class V2VM{
         //liveness_map = new HashMap<Integer,Set<String>>();
         argument_register_map = new HashMap<String,String>();
         list_liveness_map = new ArrayList<Map<Integer,Set<String>>>();
+        values_called = new HashSet<String>();
+        list_values_called = new ArrayList<Set<String>>();
+        register_map_local = new HashMap<String,String>();
+        list_register_map_local = new ArrayList<Map<String,String>>();
+        temp_print_xyz = new Print_Visitor();
     }
     public void check_out_function_stacks(){
         for(int i = 0 ; i < function_stacks.size() ; i++){
@@ -148,6 +158,12 @@ public class V2VM{
             System.out.println("Vector In: " + xyz.in);
             System.out.println("Vector Out: " + xyz.out);
             System.out.println("Vector Local: " + xyz.local);
+        }
+    }
+    public void print_list_values(){
+        for(int i = 0; i < list_values_called.size();i++){
+            Set<String> temp_xyz = list_values_called.get(i);
+            System.out.println("Param values: " + temp_xyz);
         }
     }
     public void print_data_names(){
@@ -411,6 +427,30 @@ public class V2VM{
 
 
         }
+    }
+    public void start_instance_part2(int function_index_no){
+        boolean add_time = false;
+        Map<String,Integer> current_func_label_map = List_func_map.get(function_index_no);
+        VInstr[] list_instructions = the_functions[function_index_no].body;
+        int label_index = 0;
+        int start_index = 0;
+        for(Map.Entry<String,Integer> label_entry: current_func_label_map.entrySet()){
+            label_index = label_entry.getValue();
+            String label_name_map = label_entry.getKey();
+            loop_instance_pt2(i,start_index,label_index,increment_on,add_another_increment);
+            add_another_increment += 1;
+            start_index = label_index;
+            if(increment_on == false){
+                increment_on = true;
+            }
+        }
+        if(label_index == list_instructions.length){
+            loop_instance_pt2(i,label_index-1,list_instructions.length,increment_on,add_another_increment);
+        }else{
+            loop_instance_pt2(i,label_index,list_instructions.length,increment_on,add_another_increment);
+        }
+
+
     }
     public String return_register(Intervals temp_interval){
         String _ret = "false";
@@ -683,20 +723,33 @@ public class V2VM{
             VFunction test_function = the_functions[i];
             VInstr[] instructionz = test_function.body;
             VVarRef.Local[] parameter_list = test_function.params;
+            Set<String> function_local_variables = list_values_called.get(i);
             Stacks temp_stack = function_stacks.get(i);
             int arguments = 0;
-            for(int k = 1; k < parameter_list.length; k++){
-                System.out.println("local[" + temp_stack.local.size() + "] = $s" + arguments);
-                temp_stack.store_local(parameter_list[k].ident);
-                arguments++;
-            }
-            for(int k = 0; k < parameter_list.length; k++){
-                if((k & 1) == 1){
-                    System.out.println("local[" + temp_stack.local.size() + "] = $s" + arguments);
-                    temp_stack.store_local(parameter_list[k].ident);
+            int local_t = 0;
+            int local_s = 0;
+            Iterator _itr = function_local_variables.iterator();
+            while(_itr.hasNext()){
+                String da_boss_string = _itr.next();
+                if(!da_boss_strings.contains("t.")){
+                    System.out.println("local[" + temp_stack_local.size() + "] = $s" + arguments);
+                    temp_stack.store_local(da_boss_string);
+                    register_map_local.put(da_boss_string,"$s" + arguments);
                     arguments++;
+
                 }
             }
+            for(int j = 0 ; j < parameter_list.size(); j++){
+                String xyz_value = parameter_list[j].ident;
+                if(function_local_variables.contains(xyz_value)){
+                    System.out.println("$s" + local_s + " = $a" + j);
+                    local_s++;
+                }else{
+                    System.out.println("$t" + local_t + " = $a" + j);
+                    local_t++;
+                }
+            }
+
 
         }
         //VFunction test_functions = the_functions
@@ -828,6 +881,44 @@ public class V2VM{
         node_visit.dont_add = false;
         return big_index;
     }
+    public void loop_instance_pt2(int function_index,int start_index, int end_index, boolean increment_on, int map_value){
+        int wait_index;
+        String branch_name = "";
+        VInstr[] list_instructions = the_functions[function_index].body;
+        Map<String, Integer> current_func_label_map = List_func_map.get(function_index);
+        Vector<Integer> label_no_vars = new Vector<Integer>();
+        for(Map.Entry<String,Integer> entry: current_func_label_map.entrySet()){
+            Integer temp_num = entry.getValue();
+            label_no_vars.add(temp_num);
+        }
+        for(int k = start_index; k < end_index; k++){
+            if(list_instructions[k] instanceof VCall){
+                temp_print_xyz.visit(k,(VCall)list_instructions[k]);
+            }else if(list_instructions[k] instanceof VAssign){
+                temp_print_xyz.visit(k,(VAssign)list_instructions[k]);
+            }else if(list_instructions[k] instanceof VBuiltIn){
+                temp_print_xyz.visit(k,(VBuiltIn)list_instructions[k]);
+            }else if(list_instructions[k] instanceof VMemWrite){
+                temp_print_xyz.visit(k,(VMemWrite)list_instructions[k]);
+            }else if(list_instructions[k] instanceof VMemRead){
+                temp_print_xyz.visit(k,(VMemRead)list_instructions[k]);
+            }else if(list_instructions[k] instanceof VBranch){
+                temp_print_xyz.visit(k, (VBranch)list_instructions[k]);
+            }else if(list_instructions[k] instanceof VGoto){
+                temp_print_xyz.visit(k,(VGoto)list_instructions[k]);
+                /*
+                branch_name = branch_name.replace(":","");
+                int random_index = current_func_label_map.get(branch_name);
+                System.out.println("GOTO:  " + branch_name);
+                */
+                //random_succ_set.add(random_index+1);
+            }else if(list_instructions[k] instanceof VReturn){
+                temp_print_xyz.visit(k,(VReturn)list_instructions[k]);
+            }
+
+
+        }
+    }
     public void loop_instance(int function_index, int start_index, int end_index,boolean increment_on,int map_value){
         int wait_index;
         String branch_name = "";
@@ -902,7 +993,7 @@ public class V2VM{
             }
 
             List_Set da_list_set = new List_Set(node_visit.in_set,node_visit.out_set,node_visit.def_set, node_visit.use_set, random_succ_set);
-
+            values_called.addAll(node_visit.param_values);
             VSet_map.put(k+map_value,da_list_set);
 
         }
@@ -919,6 +1010,7 @@ public class V2VM{
             int label_index = 0;
             int add_another_increment = 0;
             Map<String, Integer> current_func_label_map = List_func_map.get(i);
+            Set<String> tmp_param_values = new HashSet<String>();
             for(Map.Entry<String,Integer> label_entry: current_func_label_map.entrySet()){
                 label_index = label_entry.getValue();
                 String label_name_map = label_entry.getKey();
@@ -931,6 +1023,7 @@ public class V2VM{
                 if(increment_on == false){
                     increment_on = true;
                 }
+
                 System.out.println("Finish printing");
             }
             if(label_index == list_instructions.length){
@@ -939,6 +1032,9 @@ public class V2VM{
                 loop_instance(i,label_index,list_instructions.length,increment_on,add_another_increment);
             }
             myMap.add(i,VSet_map);
+            list_values_called.add(values_called);
+            values_called = new HashSet<String>();
+            node_visit.empty_param_values();
         }
 
 
